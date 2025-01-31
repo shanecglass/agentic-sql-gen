@@ -126,7 +126,15 @@ def generate_erd():
 generate_erd()
 
 
-def gemini_call(model_id, prompt_text, system_instructions=util.system_instructions):
+def gemini_call(model_id: str, prompt_text: str, system_instructions=util.system_instructions) -> str:
+    """
+    Call the Gemini model selected and parse the response.
+
+    Args:
+        model_id (str): Identifier to determine which Gemini model is called
+        prompt_text (str): Input that wil be sent to the model
+        system_instructions: System instructions included with the prompt
+    """
     model = GenerativeModel(
         model_id,
         system_instruction=system_instructions,

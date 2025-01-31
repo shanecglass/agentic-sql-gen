@@ -15,6 +15,9 @@
 # flake8: noqa --E501
 
 import bigframes.pandas as bpd
+import bigquery
+import datetime
+from datetime import timezone
 import json
 import json_repair.repair_json as repair_json
 import magika
@@ -43,7 +46,76 @@ else:
     schema_dir.mkdir(parents=True, exist_ok=True)
     print(f"{schema_dir} created")
 
+def get_table_schemas(schema_folder=schema_dir,
+                      project_id=project_id):
+    """
+    Generate schema files for all tables in BigQuery datasets within the given project
+    Used to improve the quality of sql generation across the project.
 
+
+    Args:
+        schema_folder (str): The directory with a folder for each BigQuery dataset that contain schema files for each table
+        project_id (str): A string the project ID for the relevant project
+
+    Returns:
+       None
+    """
+    client = bigquery.Client()
+    datasets = list(client.list_datasets())  # Make an API request.
+    datasets_dict = {}
+    if datasets:
+        for dataset in datasets:
+            dataset = client.get_dataset(f"{project_id}.{dataset.dataset_id}")
+            dataset_id = dataset.dataset_id
+            folder_path = Path(os.path.join(schema_folder, dataset_id))
+            if folder_path.exists():
+                print(f"{folder_path} already exists")
+            else:
+                folder_path.mkdir(parents=True, exist_ok=True)
+                print(f"{folder_path} created")
+            dataset_location = dataset.location
+            table_list = client.list_tables(f"{project_id}.{dataset_id}")
+            if table_list:
+                for table in table_list:
+                    table_dict = {}
+                    table = client.get_table(
+                        f"{project_id}.{dataset_id}.{table.table_id}")
+                    table_id = table.table_id
+                    table_last_modified = table.modified
+                    table_schema_file = Path(os.path.join(
+                        folder_path, f"{table_id}.json"))
+                    table_dict[table_id] = str(table_schema_file)
+                    last_updated_file = Path(os.path.join(
+                        folder_path, f"last_updated.pkl"))
+                    if last_updated_file.exists():
+                        with open(last_updated_file, 'rb') as f:
+                            last_local_update = pickle.load(f)
+                            f.close()
+                    else:
+                        last_local_update = datetime.now(tz=timezone.utc)
+                    if table_last_modified < last_local_update and table_schema_file.exists():
+                        print(
+                            f"{table_id} not changed since last local schema refresh")
+                        continue
+                    else:
+                        table_schema_query = util.query_text(
+                            project_id, dataset_id, table_id)
+                        table_schema = bf_call(
+                            table_schema_query, project_id, location=dataset_location)
+                        with open(table_schema_file, "w") as f:
+                            f.write(json.dumps(table_schema, indent=4))
+                            print(f"{table_id} schema written to {
+                                table_schema_file}")
+                            f.close()
+                        with open(last_updated_file, 'wb') as f:
+                            last_updated_time = datetime.now(tz=timezone.utc)
+                            pickle.dump(last_updated_time, f)
+                            f.close()
+            else:
+                print(
+                    f"Dataset {dataset.dataset_id} does not contain any tables.")
+    else:
+        print(f"Project {project_id} does not contain any datasets.")
 
 def extract_sql(schema_dir):
     """

@@ -254,8 +254,16 @@ def generate_sql(request: str, project_id: str = project_id) -> str:
     print("First query: " + generated_query)
     output = {}
     output['query_and_explain'] = generated_query
-    confirmed_query = gemini_call(FLASH_MODEL_ID,
-                                  util.query_check(generated_query, bq_schema, erd_json, project_id, dataset_list))
+    if util.dry_run_validate == True:
+        exception, validation_needed = util.query_dryrun(generated_query)
+        if validation_needed == False:
+            return output
+        else:
+            confirmed_query = gemini_call(FLASH_MODEL_ID,
+                                          util.query_check(generated_query, bq_schema, erd_json, project_id, dataset_list, exception))
+    else:
+        confirmed_query = gemini_call(FLASH_MODEL_ID,
+                                      util.query_check(generated_query, bq_schema, erd_json, project_id, dataset_list, exception=None))
     print("Second query: " + confirmed_query)
     output['query'] = confirmed_query
     return output

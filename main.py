@@ -15,14 +15,14 @@
 # flake8: noqa --E501
 
 import bigframes.pandas as bpd
-import bigquery
+from google.cloud import bigquery
 import datetime
 from datetime import timezone
 import json
-import json_repair.repair_json as repair_json
+from json_repair import repair_json
 import magika
 import os
-import Path
+from pathlib import Path
 import pickle
 import util
 from vertexai.generative_models import (
